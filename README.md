@@ -19,7 +19,8 @@ Boxroom-Plus Posters extends the game's existing frame system by allowing you to
 ## How to Use
 
 1. Place a picture frame in your room.
-2. Hold **Shift**.
+2. Hold A Game Box
+2. Hold **Alt** + **Shift**.
 3. Click the frame.
 4. Select an image from your computer.
 5. Enjoy your new custom poster!
