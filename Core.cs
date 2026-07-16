@@ -1,6 +1,6 @@
 ﻿using MelonLoader;
 
-[assembly: MelonInfo(typeof(Boxroom_Plus.Core), "Boxroom-Plus-Posters", "1.0.0", "MidgetBrony", null)]
+[assembly: MelonInfo(typeof(Boxroom_Plus.Core), "Boxroom-Plus-Posters", "1.1.0", "MidgetBrony", null)]
 [assembly: MelonGame("NestedLoop", "BOXROOM")]
 
 namespace Boxroom_Plus

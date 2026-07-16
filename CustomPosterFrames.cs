@@ -54,6 +54,8 @@ namespace Boxroom_Plus.Patches
         private static readonly FieldInfo CurrentSaveStateField =
             AccessTools.Field(typeof(GameImagePainter), "currentSaveState");
 
+        private static readonly Shader UnlitShader =
+    Shader.Find("Universal Render Pipeline/Unlit");
         public static bool IsShiftHeld()
         {
             return Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
@@ -66,12 +68,13 @@ namespace Boxroom_Plus.Patches
 
             PlacementTag tag = painter.GetComponent<PlacementTag>();
 
-            if (tag == null || tag.PlaceableData == null)
+            if (tag?.PlaceableData == null)
                 return false;
 
             string id = tag.PlaceableData.ID ?? "";
 
-            return id.StartsWith("Placeable_frame_", StringComparison.OrdinalIgnoreCase);
+            return id.StartsWith("Placeable_frame_", StringComparison.OrdinalIgnoreCase)
+                || id.StartsWith("Placeable_poster_", StringComparison.OrdinalIgnoreCase);
         }
 
         public static void OpenPosterPicker(GameImagePainter painter)
@@ -136,6 +139,45 @@ namespace Boxroom_Plus.Patches
             return ApplyPoster(painter, poster);
         }
 
+        private static bool IsPng(string posterFile)
+        {
+            return !string.IsNullOrWhiteSpace(posterFile) &&
+                   Path.GetExtension(posterFile)
+                       .Equals(".png", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void SetTransparent(Material mat)
+        {
+            mat.SetFloat("_Surface", 1.0f);          // Transparent
+            mat.SetFloat("_Blend", 0.0f);            // Alpha
+
+            mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+
+            mat.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            mat.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+
+            mat.SetFloat("_ZWrite", 0.0f);
+
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        }
+
+        private static void SetOpaque(Material material)
+        {
+            if (material == null)
+                return;
+
+            material.SetFloat("_Surface", 0.0f); // Opaque
+            material.SetOverrideTag("RenderType", "");
+            material.renderQueue = -1;
+
+            material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        }
+
         private static bool ApplyPoster(GameImagePainter painter, string posterFile)
         {
             try
@@ -157,7 +199,49 @@ namespace Boxroom_Plus.Patches
                 if (overrideMaterial != null)
                     MaterialHelpers.SetMaterial(renderer, materialIndex, overrideMaterial);
 
-                MaterialHelpers.SetTexture(renderer, materialIndex, texture);
+                Material material = renderer.materials[materialIndex];
+
+                material.mainTexture = texture;
+
+                if (material.HasProperty("_BaseMap"))
+                    material.SetTexture("_BaseMap", texture);
+
+                if (material.HasProperty("_MainTex"))
+                    material.SetTexture("_MainTex", texture);
+
+                if (IsPng(posterFile))
+                {
+                    // Configure transparency before switching shaders.
+                    SetTransparent(material);
+
+                    if (UnlitShader != null)
+                    {
+                        material.shader = UnlitShader;
+
+                        material.mainTexture = texture;
+
+                        if (material.HasProperty("_BaseMap"))
+                            material.SetTexture("_BaseMap", texture);
+
+                        if (material.HasProperty("_MainTex"))
+                            material.SetTexture("_MainTex", texture);
+
+                        if (material.HasProperty("_BaseColor"))
+                            material.SetColor("_BaseColor", Color.white);
+
+                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                    }
+
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    renderer.receiveShadows = false;
+                }
+                else
+                {
+                    SetOpaque(material);
+
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                    renderer.receiveShadows = true;
+                }
 
                 return true;
             }
@@ -271,9 +355,7 @@ namespace Boxroom_Plus.Patches
             if (string.IsNullOrWhiteSpace(posterFile))
                 return null;
 
-            Texture2D cached;
-
-            if (TextureCache.TryGetValue(posterFile, out cached))
+            if (TextureCache.TryGetValue(posterFile, out Texture2D cached))
                 return cached;
 
             string path = Path.Combine(GetPosterFolder(), posterFile);
@@ -286,11 +368,16 @@ namespace Boxroom_Plus.Patches
 
             byte[] bytes = File.ReadAllBytes(path);
 
-            Texture2D texture = new Texture2D(2, 2);
+            Texture2D texture = new Texture2D(
+                2,
+                2,
+                TextureFormat.RGBA32,
+                false);
 
             if (!RuntimeImageLoader.LoadImage(texture, bytes))
             {
                 UnityEngine.Object.Destroy(texture);
+
                 MelonLogger.Warning("[Boxroom Plus Posters] Failed to decode poster: " + path);
                 return null;
             }
