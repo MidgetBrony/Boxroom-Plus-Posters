@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "boxroom-plus-posters",
+  "name": "Boxroom Plus Posters",
+  "author": "MidgetBrony",
+  "description": "Custom images for BOXROOM picture frames with save restoration and texture caching.",
+  "repository": "https://github.com/MidgetBrony/Boxroom-Plus-Posters",
+  "requirements": { "melonLoader": "0.7.0" },
+  "dependencies": [],
+  "release": {
+    "provider": "github",
+    "asset": "Boxroom_Plus_Posters*.zip",
+    "destination": "Mods"
+  }
+}
