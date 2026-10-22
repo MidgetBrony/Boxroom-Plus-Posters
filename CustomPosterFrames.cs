@@ -74,7 +74,7 @@ namespace Boxroom_Plus.Patches
             string id = tag.PlaceableData.ID ?? "";
 
             return id.StartsWith("Placeable_frame_", StringComparison.OrdinalIgnoreCase)
-                || id.StartsWith("Placeable_poster_", StringComparison.OrdinalIgnoreCase);
+                || id.StartsWith("Placeable_poster_", StringComparison.OrdinalIgnoreCase) || id.StartsWith("Placeable_prop_clock_desk", StringComparison.OrdinalIgnoreCase);
         }
 
         public static void OpenPosterPicker(GameImagePainter painter)
